@@ -1,0 +1,11 @@
+# Isolated env for GSM8K-RLVR (see run_train.sh). Install torch separately if needed:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+transformers>=4.46.0
+accelerate>=1.0.0
+peft>=0.14.0
+datasets>=3.0.0
+trl>=0.15.0
+safetensors
+sentencepiece
+protobuf
+wandb
