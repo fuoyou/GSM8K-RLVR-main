@@ -5,7 +5,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import LoraConfig, get_peft_model
 from trl import GRPOConfig, GRPOTrainer
-from utils import format_reward_func_qa, correctness_reward_func_qa, \
+from utils import format_reward_func_qa, correctness_reward_func_qa, build_qa_reward_funcs, \
                   format_reward_func_code, correctness_reward_func_code, \
                   print_trainable_parameters
 from gsm8k import GSM8K
@@ -61,6 +61,31 @@ def parse_args():
     parser.add_argument('--max_completion_length', type=int, default=300)
     parser.add_argument('--num_train_epochs', type=float, default=2.0)
     parser.add_argument('--save_steps', type=int, default=100)
+    parser.add_argument(
+        '--reward_format_weight',
+        type=float,
+        default=0.5,
+        help="QA format reward weight.",
+    )
+    parser.add_argument(
+        '--reward_correctness_weight',
+        type=float,
+        default=1.0,
+        help="QA correctness reward weight.",
+    )
+    parser.add_argument(
+        '--reward_correctness_tolerance',
+        type=float,
+        default=1e-3,
+        help="QA correctness numeric tolerance.",
+    )
+    parser.add_argument(
+        '--reward_format_mode',
+        type=str,
+        default='strict',
+        choices=['strict', 'loose'],
+        help="QA format reward mode.",
+    )
     return parser.parse_args()
 
 
@@ -147,7 +172,13 @@ def main():
     model.config.pad_token_id = tokenizer.pad_token_id
 
     if args.format == "qa":
-        rewards_funcs = [format_reward_func_qa, correctness_reward_func_qa]
+        qa_format_reward_func, qa_correctness_reward_func = build_qa_reward_funcs(
+            format_reward_weight=args.reward_format_weight,
+            correctness_reward_weight=args.reward_correctness_weight,
+            correctness_tolerance=args.reward_correctness_tolerance,
+            format_mode=args.reward_format_mode,
+        )
+        rewards_funcs = [qa_format_reward_func, qa_correctness_reward_func]
     elif args.format == "code":
         rewards_funcs = [format_reward_func_code, correctness_reward_func_code]
     else:

@@ -10,35 +10,60 @@ def print_trainable_parameters(model):
 
 import re
 
-def format_reward_func_qa(completions, **kwargs):
-    pattern = r"\n#### The final answer is \d+"    
-    completion_contents = [completion for completion in completions]    
-    matches = [re.search(pattern, content) for content in completion_contents]
-    return [0.5 if match else 0.0 for match in matches]
 
-def correctness_reward_func_qa(completions, final_answer, **kwargs):
-    rewards = []
-    
-    for completion, ground_truth in zip(completions, final_answer) :
-        try:
-            match = re.search(r'####.*?([\d,]+(?:\.\d+)?)', completion)
-            if match:
-                answer = match.group(1)
-                
-                for remove_char in [',', '$', '%', 'g']:
-                    answer = answer.replace(remove_char, '')
-                    
-                if abs(float(answer)-float(ground_truth)) < 1e-3:
-                    rewards.append(1.0)
+def build_qa_reward_funcs(
+    format_reward_weight=0.5,
+    correctness_reward_weight=1.0,
+    correctness_tolerance=1e-3,
+    format_mode="strict",
+):
+    """
+    Build configurable QA reward functions.
+
+    format_mode:
+      - strict: require `#### The final answer is <number>`
+      - loose:  require `#### ... <number>`
+    """
+    if format_mode == "strict":
+        format_pattern = r"\n#### The final answer is [\-]?[\d,]+(?:\.\d+)?"
+    else:
+        format_pattern = r"####.*?[\-]?[\d,]+(?:\.\d+)?"
+
+    def format_reward_func_qa(completions, **kwargs):
+        completion_contents = [completion for completion in completions]
+        matches = [re.search(format_pattern, content) for content in completion_contents]
+        return [format_reward_weight if match else 0.0 for match in matches]
+
+    def correctness_reward_func_qa(completions, final_answer, **kwargs):
+        rewards = []
+        for completion, ground_truth in zip(completions, final_answer):
+            try:
+                match = re.search(r"####.*?([\-]?[\d,]+(?:\.\d+)?)", completion)
+                if match:
+                    answer = match.group(1)
+                    for remove_char in [",", "$", "%", "g"]:
+                        answer = answer.replace(remove_char, "")
+                    if abs(float(answer) - float(ground_truth)) < correctness_tolerance:
+                        rewards.append(correctness_reward_weight)
+                    else:
+                        rewards.append(0.0)
                 else:
                     rewards.append(0.0)
-                
-            else:
+            except ValueError:
                 rewards.append(0.0)
-        except ValueError:
-            rewards.append(0.0)
-            
-    return rewards
+        return rewards
+
+    return format_reward_func_qa, correctness_reward_func_qa
+
+
+def format_reward_func_qa(completions, **kwargs):
+    format_func, _ = build_qa_reward_funcs()
+    return format_func(completions, **kwargs)
+
+
+def correctness_reward_func_qa(completions, final_answer, **kwargs):
+    _, correctness_func = build_qa_reward_funcs()
+    return correctness_func(completions, final_answer, **kwargs)
 
 ###### CODE Format Utils ######
 

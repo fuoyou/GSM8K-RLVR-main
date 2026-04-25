@@ -99,7 +99,7 @@ def save_progress(progress_path: str, next_index: int, correct: int, total: int)
 
 def main():
     args = parse_args()
-    print(args)
+    print(args, flush=True)
 
     dataset = GSM8K(
         split="test",
@@ -114,7 +114,7 @@ def main():
     if args.limit > 0:
         dataset = dataset.select(range(min(args.limit, len(dataset))))
 
-    print(f"Evaluating samples: {len(dataset)}")
+    print(f"Evaluating samples: {len(dataset)}", flush=True)
 
     tokenizer = AutoTokenizer.from_pretrained(args.base_model)
     tokenizer.pad_token = tokenizer.eos_token
@@ -128,10 +128,10 @@ def main():
     )
     if args.adapter_path:
         model = PeftModel.from_pretrained(base_model, args.adapter_path)
-        print(f"Loaded adapter: {args.adapter_path}")
+        print(f"Loaded adapter: {args.adapter_path}", flush=True)
     else:
         model = base_model
-        print("No adapter provided; evaluating base model only.")
+        print("No adapter provided; evaluating base model only.", flush=True)
     model.eval()
 
     prompts = [x["prompt"] for x in dataset]
@@ -198,17 +198,17 @@ def main():
 
         if (start_idx // args.batch_size + 1) % 10 == 0:
             acc = 100.0 * correct / done
-            print(f"Progress: {done}/{total}, running_acc={acc:.2f}%")
+            print(f"Progress: {done}/{total}, running_acc={acc:.2f}%", flush=True)
 
     final_acc = 100.0 * correct / total if total > 0 else 0.0
-    print(f"Final Accuracy: {final_acc:.2f}% ({correct}/{total})")
+    print(f"Final Accuracy: {final_acc:.2f}% ({correct}/{total})", flush=True)
     if args.save_predictions:
         os.makedirs(os.path.dirname(os.path.abspath(args.save_predictions)), exist_ok=True)
         with open(args.save_predictions, "w", encoding="utf-8") as f:
             f.write("\n".join(prediction_lines))
             if prediction_lines:
                 f.write("\n")
-        print(f"Saved predictions: {args.save_predictions}")
+        print(f"Saved predictions: {args.save_predictions}", flush=True)
     if args.resume_from:
         save_progress(args.resume_from, total, correct, total)
 
